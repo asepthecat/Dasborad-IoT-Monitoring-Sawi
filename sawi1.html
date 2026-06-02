@@ -1,139 +1,545 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monitoring Hidroponik Selada - ESP32</title>
-    <style>
-        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; }
-        body { background-color: #f4f7f6; color: #333; padding: 20px; }
-        .container { max-width: 1100px; margin: 0 auto; }
-        header { text-align: center; margin-bottom: 30px; background: #2e7d32; color: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        h1 { font-size: 24px; padding-bottom: 5px; }
-        p { font-size: 14px; opacity: 0.9; }
-        
-        /* Grid Layout */
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 15px; margin-bottom: 30px; }
-        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); text-align: center; border-top: 4px solid #4caf50; transition: transform 0.2s; }
-        .card:hover { transform: translateY(-2px); }
-        .card.control-card { border-top-color: #2196f3; }
-        
-        /* Sensor Typography */
-        .card h3 { font-size: 12px; color: #777; text-transform: uppercase; margin-bottom: 12px; letter-spacing: 0.5px; }
-        .value { font-size: 30px; font-weight: bold; color: #2e7d32; margin-bottom: 2px; }
-        .unit { font-size: 13px; color: #666; font-weight: 500; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>HydroGarden — Monitoring Hidroponik</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --green:#2dbe6c;--green-light:#e8f8ef;--green-dark:#1a7a42;
+  --blue:#3b9eff;--blue-light:#e8f3ff;
+  --amber:#f5a623;--amber-light:#fff4e0;
+  --teal:#17b8a6;--teal-light:#e0f9f6;
+  --red:#f05454;--red-light:#ffeaea;
+  --purple:#8b5cf6;--purple-light:#f0ebff;
+  --bg:#f0faf4;--surface:#ffffff;
+  --text:#1e3a2f;--muted:#6b8f7a;
+  --radius:16px;--radius-sm:10px;
+  --shadow:0 2px 12px rgba(45,190,108,0.10);
+}
+body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
 
-        /* Buttons & Controls */
-        .btn-group { display: flex; justify-content: center; gap: 10px; margin-top: 10px; }
-        button { padding: 12px 20px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 14px; transition: 0.3s; width: 100%; }
-        .btn-mode { background-color: #e0e0e0; color: #333; }
-        .btn-mode.active { background-color: #2196f3; color: white; box-shadow: 0 2px 4px rgba(33,150,243,0.3); }
-        .btn-toggle { background-color: #f44336; color: white; box-shadow: 0 2px 4px rgba(244,67,54,0.3); }
-        .btn-toggle.on { background-color: #4caf50; box-shadow: 0 2px 4px rgba(76,175,80,0.3); }
-        button:disabled { background-color: #e0e0e0; color: #999; cursor: not-allowed; opacity: 0.6; box-shadow: none; }
-        
-        /* Status Text Info */
-        .status-text { font-size: 18px; font-weight: 600; color: #555; margin: 10px 0 15px 0; }
-        .status-info { background: #e8f5e9; padding: 10px; border-radius: 5px; margin-top: 15px; font-size: 12px; color: #2e7d32; line-height: 1.4; }
-        h2 { margin-bottom: 15px; font-size: 18px; border-left: 4px solid #333; padding-left: 10px; }
+/* ── ANIMATED SCENE BG ── */
+.scene-wrap{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none}
+.scene-wrap svg{width:100%;height:100%;position:absolute}
 
-        /* TABLE HISTORY STYLE */
-        .history-section { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-top: 20px; }
-        .history-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-        .btn-delete { background-color: #e53935; color: white; width: auto; padding: 8px 15px; font-size: 12px; }
-        .btn-delete:hover { background-color: #b71c1c; }
-        .table-wrapper { overflow-x: auto; max-height: 300px; overflow-y: auto; border: 1px solid #eee; border-radius: 6px; }
-        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 14px; }
-        th, td { padding: 12px 15px; border-bottom: 1px solid #eee; }
-        th { background-color: #f8f9fa; color: #555; position: sticky; top: 0; z-index: 1; }
-        tr:hover { background-color: #f9f9f9; }
-    </style>
+/* floating leaf */
+@keyframes leafDrift{
+  0%{transform:translate(0,0) rotate(0deg);opacity:0}
+  10%{opacity:.7}
+  90%{opacity:.4}
+  100%{transform:translate(-80px,-500px) rotate(360deg);opacity:0}
+}
+.leaf{position:absolute;bottom:0;animation:leafDrift ease-in infinite;pointer-events:none}
+
+/* water ripple */
+@keyframes ripple{
+  0%{transform:scale(0);opacity:.6}
+  100%{transform:scale(3);opacity:0}
+}
+.ripple-ring{position:absolute;border-radius:50%;border:2px solid rgba(45,190,108,.4);animation:ripple 3s ease-out infinite}
+
+/* mascot bob */
+@keyframes mascotBob{
+  0%,100%{transform:translateY(0) rotate(-2deg)}
+  50%{transform:translateY(-10px) rotate(2deg)}
+}
+.mascot-wrap{position:fixed;bottom:16px;right:12px;z-index:10;animation:mascotBob 3s ease-in-out infinite;filter:drop-shadow(0 6px 18px rgba(45,190,108,.35));pointer-events:none}
+.mascot-wrap svg{width:88px;height:88px}
+
+/* ── PAGE ── */
+.page{position:relative;z-index:2;max-width:520px;margin:0 auto;padding:16px 14px 100px}
+
+/* ── HEADER ── */
+.hdr{background:var(--green);border-radius:20px;padding:18px 20px 16px;margin-bottom:18px;position:relative;overflow:hidden}
+.hdr-deco{position:absolute;right:-20px;top:-20px;width:110px;height:110px;background:rgba(255,255,255,.12);border-radius:50%}
+.hdr-deco2{position:absolute;right:30px;top:-40px;width:70px;height:70px;background:rgba(255,255,255,.08);border-radius:50%}
+.hdr-top{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+.hdr-icon{width:38px;height:38px;background:rgba(255,255,255,.25);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:20px}
+.hdr h1{font-size:19px;font-weight:800;color:#fff;letter-spacing:.3px}
+.hdr h1 span{color:#b8ffd8}
+.hdr-sub{font-size:12px;color:rgba(255,255,255,.82);padding-left:48px}
+.live-pill{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.2);border-radius:20px;padding:3px 10px;font-size:11px;color:#fff;font-weight:700;margin-left:auto;flex-shrink:0}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.live-dot{width:7px;height:7px;background:#b8ffd8;border-radius:50%;animation:blink 1.4s ease-in-out infinite}
+
+/* ── SECTION LABEL ── */
+.sec-label{font-size:12px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin:18px 0 10px;display:flex;align-items:center;gap:8px}
+.sec-label::after{content:'';flex:1;height:1px;background:rgba(45,190,108,.15)}
+
+/* ── SENSOR GRID (2 col) ── */
+.sensor-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.s-card{background:var(--surface);border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow);position:relative;overflow:hidden;transition:transform .2s}
+.s-card:active{transform:scale(.97)}
+.s-card-accent{position:absolute;top:0;left:0;right:0;height:4px;border-radius:16px 16px 0 0}
+.s-emoji{font-size:22px;margin-bottom:6px;display:block}
+.s-name{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:4px}
+.s-val{font-size:28px;font-weight:800;line-height:1;margin-bottom:2px}
+.s-unit{font-size:11px;font-weight:600;color:var(--muted)}
+.s-bar{height:5px;background:rgba(0,0,0,.06);border-radius:4px;margin-top:10px;overflow:hidden}
+.s-bar-fill{height:100%;border-radius:4px;transition:width 1.2s cubic-bezier(.4,0,.2,1)}
+
+/* status badge inside card */
+.s-badge{position:absolute;top:12px;right:12px;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px}
+
+/* ── STATUS STRIP ── */
+.status-strip{display:flex;gap:8px;margin-bottom:6px}
+.strip-item{flex:1;background:var(--surface);border-radius:var(--radius-sm);padding:10px 12px;box-shadow:var(--shadow);display:flex;align-items:center;gap:8px}
+.strip-icon{font-size:18px}
+.strip-label{font-size:11px;font-weight:700;color:var(--muted)}
+.strip-val{font-size:13px;font-weight:800}
+
+/* ── CONTROL CARDS ── */
+.ctrl-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:10px}
+.ctrl-card{background:var(--surface);border-radius:var(--radius);padding:16px 14px;box-shadow:var(--shadow)}
+
+.mode-row{display:flex;background:#f1f5f3;border-radius:10px;padding:3px;gap:3px;margin-bottom:10px}
+.mode-btn{flex:1;padding:9px 4px;border:none;border-radius:8px;font-family:'Nunito',sans-serif;font-size:12px;font-weight:800;letter-spacing:.5px;cursor:pointer;background:transparent;color:var(--muted);transition:all .22s}
+.mode-btn.on-auto{background:var(--green);color:#fff;box-shadow:0 2px 8px rgba(45,190,108,.35)}
+.mode-btn.on-manual{background:var(--blue);color:#fff;box-shadow:0 2px 8px rgba(59,158,255,.35)}
+.hint-text{font-size:11px;color:var(--muted);line-height:1.5;font-weight:600}
+
+/* power ring */
+.p-ring{width:52px;height:52px;border-radius:50%;border:3px solid;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;transition:all .35s}
+.p-ring svg{width:22px;height:22px}
+.p-ring.state-on{border-color:var(--green);color:var(--green);box-shadow:0 0 0 6px rgba(45,190,108,.12)}
+.p-ring.state-off{border-color:#e0e0e0;color:#bbb}
+
+.dev-name{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);text-align:center;margin-bottom:4px}
+.dev-status{font-size:14px;font-weight:800;text-align:center;margin-bottom:10px;transition:color .3s}
+.dev-status.on{color:var(--green)}.dev-status.off{color:#ccc}
+
+.tog-btn{width:100%;padding:10px;border:none;border-radius:10px;font-family:'Nunito',sans-serif;font-size:13px;font-weight:800;cursor:pointer;transition:all .25s;letter-spacing:.3px}
+.tog-btn:disabled{opacity:.35;cursor:not-allowed}
+.tog-btn.t-on{background:var(--green-light);color:var(--green-dark)}
+.tog-btn.t-off{background:var(--red-light);color:#c0392b}
+
+/* ── HISTORY ── */
+.hist-card{background:var(--surface);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow)}
+.hist-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.hist-title{font-size:14px;font-weight:800;color:var(--text)}
+.btn-del{padding:6px 14px;background:var(--red-light);border:none;border-radius:8px;color:#c0392b;font-family:'Nunito',sans-serif;font-size:12px;font-weight:700;cursor:pointer}
+.table-wrap{overflow-x:auto;border-radius:10px;border:1px solid rgba(45,190,108,.1)}
+table{width:100%;border-collapse:collapse;font-size:12px;min-width:420px}
+th{background:#f6fdf9;padding:9px 12px;text-align:left;font-size:11px;font-weight:800;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;border-bottom:1px solid rgba(45,190,108,.12);position:sticky;top:0;z-index:1}
+td{padding:9px 12px;border-bottom:1px solid rgba(0,0,0,.04);color:var(--text);font-weight:600}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#f9fffe}
+.td-tds{color:var(--amber);font-weight:800}
+.td-time{color:var(--muted);font-size:11px}
+.empty-row td{text-align:center;color:var(--muted);padding:24px;font-size:13px}
+
+/* ── TOAST ── */
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(90px);background:var(--text);color:#fff;padding:10px 20px;border-radius:20px;font-size:13px;font-weight:700;z-index:999;transition:transform .35s cubic-bezier(.34,1.56,.64,1);pointer-events:none;white-space:nowrap}
+#toast.show{transform:translateX(-50%) translateY(0)}
+
+/* ── MOBILE fine-tuning ── */
+@media(max-width:380px){
+  .page{padding:12px 10px 100px}
+  .s-val{font-size:24px}
+  .mascot-wrap svg{width:72px;height:72px}
+}
+</style>
 </head>
 <body>
 
-<div class="container">
-    <header>
-        <h1>Otomatisasi Sistem Pengairan dan Pencahayaan Hidroponik Selada</h1>
-        <p>Dashboard Monitoring Real-Time Berbasis ESP32 & Firebase Asia</p>
-    </header>
+<!-- SCENE BACKGROUND -->
+<div class="scene-wrap">
+  <svg viewBox="0 0 390 844" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="skyG" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#d4f5e2"/>
+        <stop offset="100%" stop-color="#f0faf4"/>
+      </linearGradient>
+    </defs>
+    <rect width="390" height="844" fill="url(#skyG)"/>
+    <!-- Rolling hills -->
+    <path d="M0 600 Q100 520 200 570 Q300 610 390 540 L390 844 L0 844Z" fill="#c8eddb" opacity=".55"/>
+    <path d="M0 660 Q80 620 180 640 Q280 660 390 620 L390 844 L0 844Z" fill="#b2e4c8" opacity=".6"/>
+    <path d="M0 720 Q120 690 240 710 Q320 722 390 700 L390 844 L0 844Z" fill="#9ddab5" opacity=".5"/>
+    <!-- Sun circle -->
+    <circle cx="320" cy="90" r="52" fill="#fff9e0" opacity=".8"/>
+    <circle cx="320" cy="90" r="36" fill="#ffe97a" opacity=".85"/>
+    <!-- Sun rays -->
+    <g stroke="#ffe97a" stroke-width="2" opacity=".5">
+      <line x1="320" y1="30" x2="320" y2="14"/>
+      <line x1="320" y1="150" x2="320" y2="166"/>
+      <line x1="260" y1="90" x2="244" y2="90"/>
+      <line x1="380" y1="90" x2="396" y2="90"/>
+      <line x1="278" y1="48" x2="267" y2="37"/>
+      <line x1="362" y1="132" x2="373" y2="143"/>
+      <line x1="362" y1="48" x2="373" y2="37"/>
+      <line x1="278" y1="132" x2="267" y2="143"/>
+    </g>
+    <!-- Fluffy clouds -->
+    <g fill="white" opacity=".75">
+      <ellipse cx="80" cy="80" rx="45" ry="22"/>
+      <ellipse cx="55" cy="86" rx="28" ry="18"/>
+      <ellipse cx="108" cy="86" rx="30" ry="18"/>
+      <ellipse cx="200" cy="55" rx="38" ry="18"/>
+      <ellipse cx="178" cy="62" rx="24" ry="15"/>
+      <ellipse cx="224" cy="62" rx="26" ry="14"/>
+    </g>
+    <!-- Little birds (simple V shapes) -->
+    <g fill="none" stroke="#6bc98a" stroke-width="1.5" stroke-linecap="round">
+      <path d="M50 140 Q54 136 58 140"/><path d="M62 134 Q66 130 70 134"/>
+      <path d="M150 110 Q154 106 158 110"/><path d="M163 116 Q167 112 171 116"/>
+    </g>
+    <!-- Hydroponic plants at bottom -->
+    <g opacity=".8">
+      <rect x="20" y="790" width="12" height="30" rx="3" fill="#5ac882"/>
+      <ellipse cx="26" cy="785" rx="14" ry="10" fill="#3dba6e"/>
+      <ellipse cx="18" cy="778" rx="9" ry="7" fill="#4dcc7e"/>
+      <ellipse cx="34" cy="780" rx="9" ry="7" fill="#3dba6e"/>
 
-    <h2 style="color: #2e7d32; border-left-color: #2e7d32;">Monitoring Sensor</h2>
-    <div class="grid">
-        <div class="card">
-            <h3>Suhu Udara (DHT)</h3>
-            <div class="value" id="txt-suhu">--</div>
-            <span class="unit">°C</span>
-        </div>
-        <div class="card">
-            <h3>Kelembaban (DHT)</h3>
-            <div class="value" id="txt-kelembaban">--</div>
-            <span class="unit">% RH</span>
-        </div>
-        <div class="card">
-            <h3>Tinggi Air Nutrisi (HC-SR04)</h3>
-            <div class="value" id="txt-air">--</div>
-            <span class="unit">cm</span>
-        </div>
-        <div class="card">
-            <h3>Intensitas Cahaya (LDR)</h3>
-            <div class="value" id="txt-ldr">--</div>
-            <span class="unit">ADC / Lux</span>
-        </div>
-        <div class="card" style="border-top-color: #ff9800;">
-            <h3 style="color: #ff9800;">Kepekatan Nutrisi (TDS)</h3>
-            <div class="value" id="txt-tds" style="color: #ff9800;">--</div>
-            <span class="unit">PPM</span>
-        </div>
-    </div>
+      <rect x="340" y="792" width="12" height="28" rx="3" fill="#5ac882"/>
+      <ellipse cx="346" cy="787" rx="13" ry="9" fill="#3dba6e"/>
+      <ellipse cx="338" cy="780" rx="8" ry="6" fill="#4dcc7e"/>
+      <ellipse cx="354" cy="782" rx="8" ry="6" fill="#3dba6e"/>
 
-    <h2 style="color: #1976d2; border-left-color: #1976d2;">Kontrol Perangkat (Aktuator)</h2>
-    <div class="grid">
-        <div class="card control-card">
-            <h3>Mode Sistem</h3>
-            <div class="btn-group">
-                <button id="btn-auto" class="btn-mode" onclick="setMode('auto')">AUTO</button>
-                <button id="btn-manual" class="btn-mode" onclick="setMode('manual')">MANUAL</button>
-            </div>
-            <div class="status-info"><b>AUTO:</b> Pompa 5V & Lampu LED UV diatur otomatis oleh ESP32.<br><b>MANUAL:</b> Kendali penuh via tombol web.</div>
-        </div>
-
-        <div class="card control-card">
-            <h3>Pompa Pengairan (5V)</h3>
-            <div class="status-text" id="status-pompa">Menghubungkan...</div>
-            <button id="btn-pompa" class="btn-toggle" onclick="toggleAktuator('pompa')">---</button>
-        </div>
-
-        <div class="card control-card">
-            <h3>Lampu Pencahayaan (LED)</h3>
-            <div class="status-text" id="status-lampu">Menghubungkan...</div>
-            <button id="btn-lampu" class="btn-toggle" onclick="toggleAktuator('lampu')">---</button>
-        </div>
-    </div>
-
-    <div class="history-section">
-        <div class="history-header">
-            <h2 style="margin-bottom: 0; color: #37474f; border-left-color: #37474f;">Riwayat Data Sensor (History Log)</h2>
-            <button class="btn-delete" onclick="clearHistory()">HAPUS RIWAYAT</button>
-        </div>
-        <div class="table-wrapper">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Waktu</th>
-                        <th>Suhu (°C)</th>
-                        <th>Kelembaban (%)</th>
-                        <th>Tinggi Air (cm)</th>
-                        <th>Cahaya (LDR)</th>
-                        <th>Nutrisi (TDS)</th>
-                    </tr>
-                </thead>
-                <tbody id="table-history-body">
-                    </tbody>
-            </table>
-        </div>
-    </div>
+      <rect x="170" y="800" width="10" height="22" rx="3" fill="#5ac882"/>
+      <ellipse cx="175" cy="796" rx="11" ry="8" fill="#4dcc7e"/>
+    </g>
+    <!-- Butterflies -->
+    <g opacity=".6">
+      <path d="M140 200 Q148 190 150 200 Q152 190 160 200 Q152 210 150 200 Q148 210 140 200Z" fill="#ff9f7f"/>
+      <path d="M260 160 Q266 152 268 160 Q270 152 276 160 Q270 168 268 160 Q266 168 260 160Z" fill="#a78bfa"/>
+    </g>
+  </svg>
+  <!-- Floating leaf particles -->
+  <div id="leaves"></div>
 </div>
 
-    <script type="module" src="app.js"></script>
+<!-- CUTE MASCOT — friendly plant robot -->
+<div class="mascot-wrap">
+  <svg viewBox="0 0 88 88" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <radialGradient id="bodyG" cx="50%" cy="40%" r="55%">
+        <stop offset="0%" stop-color="#4de88e"/>
+        <stop offset="100%" stop-color="#22c066"/>
+      </radialGradient>
+    </defs>
+    <!-- Stem on top -->
+    <rect x="40" y="4" width="8" height="16" rx="4" fill="#22c066"/>
+    <!-- Leaf left -->
+    <path d="M44 12 Q28 6 26 20 Q36 22 44 14Z" fill="#3dda78"/>
+    <!-- Leaf right -->
+    <path d="M44 12 Q60 6 62 20 Q52 22 44 14Z" fill="#3dda78"/>
+    <!-- Body round -->
+    <circle cx="44" cy="56" r="28" fill="url(#bodyG)"/>
+    <!-- Face panel -->
+    <rect x="26" y="44" width="36" height="24" rx="10" fill="rgba(255,255,255,.28)"/>
+    <!-- Eyes -->
+    <ellipse cx="36" cy="54" rx="5.5" ry="6" fill="white"/>
+    <ellipse cx="52" cy="54" rx="5.5" ry="6" fill="white"/>
+    <circle cx="37" cy="55" r="3" fill="#1e6e40"/>
+    <circle cx="53" cy="55" r="3" fill="#1e6e40"/>
+    <!-- Eye shine -->
+    <circle cx="38.5" cy="53.5" r="1.2" fill="white"/>
+    <circle cx="54.5" cy="53.5" r="1.2" fill="white"/>
+    <!-- Smile -->
+    <path d="M37 63 Q44 69 51 63" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+    <!-- Cheek blush -->
+    <ellipse cx="31" cy="60" rx="4" ry="2.5" fill="rgba(255,150,150,.45)"/>
+    <ellipse cx="57" cy="60" rx="4" ry="2.5" fill="rgba(255,150,150,.45)"/>
+    <!-- Little arms -->
+    <path d="M16 56 Q10 60 12 68 Q20 66 22 58Z" fill="#3dda78"/>
+    <path d="M72 56 Q78 60 76 68 Q68 66 66 58Z" fill="#3dda78"/>
+    <!-- Water droplet detail -->
+    <path d="M44 72 Q41 78 44 81 Q47 78 44 72Z" fill="rgba(255,255,255,.5)"/>
+  </svg>
+</div>
+
+<div id="toast">✅ Terhubung!</div>
+
+<div class="page">
+
+  <!-- HEADER -->
+  <header class="hdr">
+    <div class="hdr-deco"></div><div class="hdr-deco2"></div>
+    <div class="hdr-top">
+      <div class="hdr-icon">🌿</div>
+      <h1>Hydro<span>Garden</span></h1>
+      <div class="live-pill"><div class="live-dot"></div>LIVE</div>
+    </div>
+    <div class="hdr-sub">Monitoring Hidroponik Selada · ESP32 &amp; Firebase</div>
+  </header>
+
+  <!-- QUICK STATUS STRIP -->
+  <div class="status-strip">
+    <div class="strip-item">
+      <span class="strip-icon">🌡️</span>
+      <div><div class="strip-label">Suhu</div><div class="strip-val" id="q-suhu" style="color:#e67e22">-- °C</div></div>
+    </div>
+    <div class="strip-item">
+      <span class="strip-icon">💧</span>
+      <div><div class="strip-label">Kelembaban</div><div class="strip-val" id="q-hum" style="color:var(--blue)">-- %</div></div>
+    </div>
+    <div class="strip-item">
+      <span class="strip-icon">⚗️</span>
+      <div><div class="strip-label">Nutrisi</div><div class="strip-val" id="q-tds" style="color:var(--amber)">-- PPM</div></div>
+    </div>
+  </div>
+
+  <!-- SENSORS -->
+  <div class="sec-label">🌱 Data Sensor</div>
+  <div class="sensor-grid">
+
+    <div class="s-card">
+      <div class="s-card-accent" style="background:linear-gradient(90deg,#f5a623,#f0c040)"></div>
+      <span class="s-emoji">🌡️</span>
+      <div class="s-name">Suhu Udara</div>
+      <div class="s-val" id="txt-suhu" style="color:#e67e22">--</div>
+      <div class="s-unit">°C · DHT22</div>
+      <div class="s-bar"><div class="s-bar-fill" id="bar-suhu" style="width:0%;background:#f5a623"></div></div>
+    </div>
+
+    <div class="s-card">
+      <div class="s-card-accent" style="background:linear-gradient(90deg,#3b9eff,#60c0ff)"></div>
+      <span class="s-emoji">💧</span>
+      <div class="s-name">Kelembaban</div>
+      <div class="s-val" id="txt-kelembaban" style="color:var(--blue)">--</div>
+      <div class="s-unit">% RH · DHT22</div>
+      <div class="s-bar"><div class="s-bar-fill" id="bar-kelembaban" style="width:0%;background:#3b9eff"></div></div>
+    </div>
+
+    <div class="s-card">
+      <div class="s-card-accent" style="background:linear-gradient(90deg,#17b8a6,#3de0cc)"></div>
+      <span class="s-emoji">📏</span>
+      <div class="s-name">Tinggi Air</div>
+      <div class="s-val" id="txt-air" style="color:var(--teal)">--</div>
+      <div class="s-unit">cm · HC-SR04</div>
+      <div class="s-bar"><div class="s-bar-fill" id="bar-air" style="width:0%;background:#17b8a6"></div></div>
+    </div>
+
+    <div class="s-card">
+      <div class="s-card-accent" style="background:linear-gradient(90deg,#2dbe6c,#5de896)"></div>
+      <span class="s-emoji">☀️</span>
+      <div class="s-name">Cahaya</div>
+      <div class="s-val" id="txt-ldr" style="color:var(--green-dark)">--</div>
+      <div class="s-unit">ADC · LDR</div>
+      <div class="s-bar"><div class="s-bar-fill" id="bar-ldr" style="width:0%;background:#2dbe6c"></div></div>
+    </div>
+
+    <div class="s-card" style="grid-column:span 2">
+      <div class="s-card-accent" style="background:linear-gradient(90deg,#f5a623,#e07b20)"></div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <div>
+          <span class="s-emoji" style="margin-bottom:2px">⚗️</span>
+        </div>
+        <div style="flex:1">
+          <div class="s-name">Kepekatan Nutrisi (TDS)</div>
+          <div style="display:flex;align-items:baseline;gap:6px">
+            <div class="s-val" id="txt-tds" style="color:var(--amber)">--</div>
+            <div class="s-unit">PPM · TDS Meter</div>
+          </div>
+          <div class="s-bar" style="margin-top:8px"><div class="s-bar-fill" id="bar-tds" style="width:0%;background:linear-gradient(90deg,#2dbe6c,#f5a623)"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTROLS -->
+  <div class="sec-label">🎛️ Kontrol Aktuator</div>
+
+  <!-- MODE -->
+  <div class="hist-card" style="margin-bottom:10px">
+    <div class="ctrl-label" style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:8px">Mode Sistem</div>
+    <div class="mode-row">
+      <button id="btn-auto" class="mode-btn" onclick="setMode('auto')">🤖 AUTO</button>
+      <button id="btn-manual" class="mode-btn" onclick="setMode('manual')">🖐 MANUAL</button>
+    </div>
+    <div class="hint-text" id="mode-hint">Mode AUTO aktif: pompa & lampu dikendalikan otomatis oleh ESP32 berdasarkan data sensor.</div>
+  </div>
+
+  <!-- DEVICE CARDS -->
+  <div class="ctrl-grid">
+    <div class="hist-card">
+      <div class="dev-name">💦 Pompa Air</div>
+      <div class="p-ring state-off" id="ring-pompa">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
+      </div>
+      <div class="dev-status off" id="status-pompa">Mati</div>
+      <button id="btn-pompa" class="tog-btn t-off" onclick="toggleAktuator('pompa')" disabled>Hidupkan</button>
+    </div>
+    <div class="hist-card">
+      <div class="dev-name">💡 Lampu LED</div>
+      <div class="p-ring state-off" id="ring-lampu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </div>
+      <div class="dev-status off" id="status-lampu">Mati</div>
+      <button id="btn-lampu" class="tog-btn t-off" onclick="toggleAktuator('lampu')" disabled>Hidupkan</button>
+    </div>
+  </div>
+
+  <!-- HISTORY -->
+  <div class="sec-label">📋 Riwayat Data</div>
+  <div class="hist-card">
+    <div class="hist-hdr">
+      <div class="hist-title">Log Sensor</div>
+      <button class="btn-del" onclick="clearHistory()">🗑 Hapus</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Waktu</th><th>Suhu</th><th>RH</th><th>Air</th><th>LDR</th><th>TDS</th></tr>
+        </thead>
+        <tbody id="table-history-body">
+          <tr class="empty-row"><td colspan="6">📭 Belum ada data tercatat.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+<script>
+(function(){
+  /* leaves */
+  const lc=document.getElementById('leaves');
+  const leafShapes=['🍃','🌿','🍀'];
+  function spawnLeaf(){
+    const d=document.createElement('div');
+    d.className='leaf';
+    d.textContent=leafShapes[Math.floor(Math.random()*leafShapes.length)];
+    d.style.cssText='font-size:'+(12+Math.random()*12)+'px;left:'+(Math.random()*100)+'%;animation-duration:'+(7+Math.random()*8)+'s;animation-delay:'+(Math.random()*5)+'s;';
+    lc.appendChild(d);
+    setTimeout(()=>d.remove(),15000);
+  }
+  setInterval(spawnLeaf,900);
+
+  /* toast */
+  function toast(msg){
+    const t=document.getElementById('toast');
+    t.textContent=msg;
+    t.classList.add('show');
+    setTimeout(()=>t.classList.remove('show'),2200);
+  }
+
+  /* bar */
+  function bar(id,val,mn,mx){
+    const pct=Math.min(100,Math.max(0,((val-mn)/(mx-mn))*100));
+    const el=document.getElementById(id);
+    if(el)el.style.width=pct+'%';
+  }
+
+  /* state */
+  let mode='auto',pompa='OFF',lampu='OFF';
+  let lS=null,lH=null,lA=null,lL=null,lT=null;
+
+  window.addEventListener('DOMContentLoaded',renderTable);
+
+  /* demo sim — remove in prod, use Firebase onValue */
+  function sim(){
+    const s=(28+Math.random()*5).toFixed(1);
+    const h=(65+Math.random()*15).toFixed(1);
+    const a=(8+Math.random()*6).toFixed(1);
+    const l=Math.round(600+Math.random()*350);
+    const td=Math.round(900+Math.random()*350);
+    updateSensor(s,h,a,l,td);
+    if(s!==lS||h!==lH){saveLog(s,h,a,l,td);lS=s;lH=h;lA=a;lL=l;lT=td;}
+  }
+  setTimeout(sim,400);
+  setInterval(sim,5000);
+
+  window.updateSensor=function(s,h,a,l,td){
+    document.getElementById('txt-suhu').textContent=s;
+    document.getElementById('txt-kelembaban').textContent=h;
+    document.getElementById('txt-air').textContent=a;
+    document.getElementById('txt-ldr').textContent=l;
+    document.getElementById('txt-tds').textContent=td;
+    document.getElementById('q-suhu').textContent=s+' °C';
+    document.getElementById('q-hum').textContent=h+' %';
+    document.getElementById('q-tds').textContent=td+' PPM';
+    bar('bar-suhu',parseFloat(s),15,45);
+    bar('bar-kelembaban',parseFloat(h),30,100);
+    bar('bar-air',parseFloat(a),0,20);
+    bar('bar-ldr',parseFloat(l),0,1023);
+    bar('bar-tds',parseFloat(td),0,2000);
+  };
+
+  function renderCtrl(){
+    const isAuto=mode==='auto';
+    document.getElementById('btn-auto').className='mode-btn'+(isAuto?' on-auto':'');
+    document.getElementById('btn-manual').className='mode-btn'+(!isAuto?' on-manual':'');
+    document.getElementById('mode-hint').textContent=isAuto
+      ?'Mode AUTO aktif: pompa & lampu dikendalikan otomatis oleh ESP32 berdasarkan data sensor.'
+      :'Mode MANUAL aktif: kamu bisa nyalakan/matikan pompa dan lampu secara langsung.';
+    applyDev('pompa',pompa,isAuto);
+    applyDev('lampu',lampu,isAuto);
+  }
+
+  function applyDev(j,st,isAuto){
+    const ring=document.getElementById('ring-'+j);
+    const stat=document.getElementById('status-'+j);
+    const btn=document.getElementById('btn-'+j);
+    const on=st==='ON';
+    ring.className='p-ring '+(on?'state-on':'state-off');
+    stat.className='dev-status '+(on?'on':'off');
+    stat.textContent=on?'Nyala 🟢':'Mati ⚫';
+    btn.textContent=on?'Matikan':'Hidupkan';
+    btn.className='tog-btn '+(on?'t-on':'t-off');
+    btn.disabled=isAuto;
+  }
+
+  window.setMode=function(m){
+    mode=m;renderCtrl();
+    toast(m==='auto'?'🤖 Mode AUTO aktif':'🖐 Mode MANUAL aktif');
+  };
+
+  window.toggleAktuator=function(j){
+    if(mode==='auto')return;
+    if(j==='pompa')pompa=pompa==='ON'?'OFF':'ON';
+    else lampu=lampu==='ON'?'OFF':'ON';
+    renderCtrl();
+    const st=j==='pompa'?pompa:lampu;
+    toast((st==='ON'?'💦 ':'⚫ ')+(j==='pompa'?'Pompa':'Lampu')+' '+(st==='ON'?'dinyalakan!':'dimatikan!'));
+  };
+
+  function saveLog(s,h,a,l,td){
+    let data=JSON.parse(localStorage.getItem('hg_log'))||[];
+    const now=new Date();
+    data.unshift({
+      w:now.toLocaleDateString('id-ID')+' '+now.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit',second:'2-digit'}),
+      s,h,a,l,td
+    });
+    if(data.length>100)data.pop();
+    localStorage.setItem('hg_log',JSON.stringify(data));
+    renderTable();
+  }
+
+  function renderTable(){
+    const data=JSON.parse(localStorage.getItem('hg_log'))||[];
+    const tb=document.getElementById('table-history-body');
+    if(!data.length){
+      tb.innerHTML='<tr class="empty-row"><td colspan="6">📭 Belum ada data tercatat.</td></tr>';
+      return;
+    }
+    tb.innerHTML=data.map(r=>`<tr>
+      <td class="td-time">${r.w}</td>
+      <td>${r.s}°</td>
+      <td>${r.h}%</td>
+      <td>${r.a}cm</td>
+      <td>${r.l}</td>
+      <td class="td-tds">${r.td}</td>
+    </tr>`).join('');
+  }
+
+  window.clearHistory=function(){
+    if(confirm('Hapus semua riwayat data sensor?')){
+      localStorage.removeItem('hg_log');
+      renderTable();
+      toast('🗑 Riwayat dihapus');
+    }
+  };
+
+  renderCtrl();
+  setTimeout(()=>toast('🌿 HydroGarden siap!'),700);
+})();
+</script>
+
+<script type="module" src="app.js"></script>
 </body>
 </html>
