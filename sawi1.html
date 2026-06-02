@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitoring Hidroponik Selada - ESP32</title>
+    <style>
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; }
+        body { background-color: #f4f7f6; color: #333; padding: 20px; }
+        .container { max-width: 1100px; margin: 0 auto; }
+        header { text-align: center; margin-bottom: 30px; background: #2e7d32; color: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h1 { font-size: 24px; padding-bottom: 5px; }
+        p { font-size: 14px; opacity: 0.9; }
+        
+        /* Grid Layout */
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 15px; margin-bottom: 30px; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); text-align: center; border-top: 4px solid #4caf50; transition: transform 0.2s; }
+        .card:hover { transform: translateY(-2px); }
+        .card.control-card { border-top-color: #2196f3; }
+        
+        /* Sensor Typography */
+        .card h3 { font-size: 12px; color: #777; text-transform: uppercase; margin-bottom: 12px; letter-spacing: 0.5px; }
+        .value { font-size: 30px; font-weight: bold; color: #2e7d32; margin-bottom: 2px; }
+        .unit { font-size: 13px; color: #666; font-weight: 500; }
+
+        /* Buttons & Controls */
+        .btn-group { display: flex; justify-content: center; gap: 10px; margin-top: 10px; }
+        button { padding: 12px 20px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 14px; transition: 0.3s; width: 100%; }
+        .btn-mode { background-color: #e0e0e0; color: #333; }
+        .btn-mode.active { background-color: #2196f3; color: white; box-shadow: 0 2px 4px rgba(33,150,243,0.3); }
+        .btn-toggle { background-color: #f44336; color: white; box-shadow: 0 2px 4px rgba(244,67,54,0.3); }
+        .btn-toggle.on { background-color: #4caf50; box-shadow: 0 2px 4px rgba(76,175,80,0.3); }
+        button:disabled { background-color: #e0e0e0; color: #999; cursor: not-allowed; opacity: 0.6; box-shadow: none; }
+        
+        /* Status Text Info */
+        .status-text { font-size: 18px; font-weight: 600; color: #555; margin: 10px 0 15px 0; }
+        .status-info { background: #e8f5e9; padding: 10px; border-radius: 5px; margin-top: 15px; font-size: 12px; color: #2e7d32; line-height: 1.4; }
+        h2 { margin-bottom: 15px; font-size: 18px; border-left: 4px solid #333; padding-left: 10px; }
+
+        /* TABLE HISTORY STYLE */
+        .history-section { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-top: 20px; }
+        .history-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .btn-delete { background-color: #e53935; color: white; width: auto; padding: 8px 15px; font-size: 12px; }
+        .btn-delete:hover { background-color: #b71c1c; }
+        .table-wrapper { overflow-x: auto; max-height: 300px; overflow-y: auto; border: 1px solid #eee; border-radius: 6px; }
+        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 14px; }
+        th, td { padding: 12px 15px; border-bottom: 1px solid #eee; }
+        th { background-color: #f8f9fa; color: #555; position: sticky; top: 0; z-index: 1; }
+        tr:hover { background-color: #f9f9f9; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Otomatisasi Sistem Pengairan dan Pencahayaan Hidroponik Selada</h1>
+        <p>Dashboard Monitoring Real-Time Berbasis ESP32 & Firebase Asia</p>
+    </header>
+
+    <h2 style="color: #2e7d32; border-left-color: #2e7d32;">Monitoring Sensor</h2>
+    <div class="grid">
+        <div class="card">
+            <h3>Suhu Udara (DHT)</h3>
+            <div class="value" id="txt-suhu">--</div>
+            <span class="unit">°C</span>
+        </div>
+        <div class="card">
+            <h3>Kelembaban (DHT)</h3>
+            <div class="value" id="txt-kelembaban">--</div>
+            <span class="unit">% RH</span>
+        </div>
+        <div class="card">
+            <h3>Tinggi Air Nutrisi (HC-SR04)</h3>
+            <div class="value" id="txt-air">--</div>
+            <span class="unit">cm</span>
+        </div>
+        <div class="card">
+            <h3>Intensitas Cahaya (LDR)</h3>
+            <div class="value" id="txt-ldr">--</div>
+            <span class="unit">ADC / Lux</span>
+        </div>
+        <div class="card" style="border-top-color: #ff9800;">
+            <h3 style="color: #ff9800;">Kepekatan Nutrisi (TDS)</h3>
+            <div class="value" id="txt-tds" style="color: #ff9800;">--</div>
+            <span class="unit">PPM</span>
+        </div>
+    </div>
+
+    <h2 style="color: #1976d2; border-left-color: #1976d2;">Kontrol Perangkat (Aktuator)</h2>
+    <div class="grid">
+        <div class="card control-card">
+            <h3>Mode Sistem</h3>
+            <div class="btn-group">
+                <button id="btn-auto" class="btn-mode" onclick="setMode('auto')">AUTO</button>
+                <button id="btn-manual" class="btn-mode" onclick="setMode('manual')">MANUAL</button>
+            </div>
+            <div class="status-info"><b>AUTO:</b> Pompa 5V & Lampu LED UV diatur otomatis oleh ESP32.<br><b>MANUAL:</b> Kendali penuh via tombol web.</div>
+        </div>
+
+        <div class="card control-card">
+            <h3>Pompa Pengairan (5V)</h3>
+            <div class="status-text" id="status-pompa">Menghubungkan...</div>
+            <button id="btn-pompa" class="btn-toggle" onclick="toggleAktuator('pompa')">---</button>
+        </div>
+
+        <div class="card control-card">
+            <h3>Lampu Pencahayaan (LED)</h3>
+            <div class="status-text" id="status-lampu">Menghubungkan...</div>
+            <button id="btn-lampu" class="btn-toggle" onclick="toggleAktuator('lampu')">---</button>
+        </div>
+    </div>
+
+    <div class="history-section">
+        <div class="history-header">
+            <h2 style="margin-bottom: 0; color: #37474f; border-left-color: #37474f;">Riwayat Data Sensor (History Log)</h2>
+            <button class="btn-delete" onclick="clearHistory()">HAPUS RIWAYAT</button>
+        </div>
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Waktu</th>
+                        <th>Suhu (°C)</th>
+                        <th>Kelembaban (%)</th>
+                        <th>Tinggi Air (cm)</th>
+                        <th>Cahaya (LDR)</th>
+                        <th>Nutrisi (TDS)</th>
+                    </tr>
+                </thead>
+                <tbody id="table-history-body">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+    <script type="module" src="app.js"></script>
+</body>
+</html>
